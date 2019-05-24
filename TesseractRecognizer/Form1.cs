@@ -15,6 +15,8 @@ namespace TesseractRecognizer
     public partial class Form1 : Form
     {
         public List<string> _arquivo = new List<string>();
+        private static string _caminhoTessData = Path.Combine(Application.StartupPath, "tessdata");//Caminho com as configuracoes de ocr e fonte do pdf
+
         public Form1()
         {
             InitializeComponent();
@@ -33,23 +35,31 @@ namespace TesseractRecognizer
 
         private void btnArquivos_Click(object sender, EventArgs e)
         {
-            _arquivo = new List<string>();
-            FileDialog file = new OpenFileDialog() { Multiselect = true };
-            if (file.ShowDialog() == DialogResult.OK)
-                _arquivo = file.FileNames.ToList();
+            FileDialog file = new OpenFileDialog()
+            {
+                Multiselect = true,
+                Filter = "BMP|*.bmp|GIF|*.gif|JPG|*.jpg;*.jpeg|PNG|*.png|TIFF|*.tif;*.tiff|All Graphics Types|*.bmp;*.jpg;*.jpeg;*.png;*.tif;*.tiff"
+            };
+            _arquivo = file.ShowDialog() == DialogResult.OK ? file.FileNames.ToList() : new List<string>();
             _arquivo.ForEach(filePath => lsbFiles.Items.Add(Path.GetFileName(filePath)));
         }
 
         private void btnAplicaOcr_Click(object sender, EventArgs e)
         {
-
-            string caminho = Path.Combine(Application.StartupPath, "tessdata");
-            using (TesseractEngine tesseract = new TesseractEngine(caminho, "por"))
+            using (TesseractEngine tesseract = new TesseractEngine(_caminhoTessData, "por"))//Caminho da pasta com arquivos de config/ idioma do OCR
                 foreach (string file in _arquivo)
-                    using (var render = ResultRenderer.CreatePdfRenderer(Path.Combine(txbDirSaida.Text, Path.GetFileNameWithoutExtension(file)), Path.Combine(caminho, caminho)))
-                    using (var image = Pix.LoadFromFile(file))
-                    using (render.BeginDocument(Path.GetFileNameWithoutExtension(file)))
-                        render.AddPage(tesseract.Process(image, Path.GetFileName(file)));
+                {
+                    string caminhoPdf = Path.Combine(txbDirSaida.Text, Path.GetFileNameWithoutExtension(file));//Caminho onde ira salvar o pdf com OCR sem informar extensao
+                    using (var render = ResultRenderer.CreatePdfRenderer(caminhoPdf, _caminhoTessData))//Caminho pdf e caminho para a fonte do pdf
+                    using (var image = Pix.LoadFromFile(file))//Carrega o arquivo em um formato que o OCR entende 
+                    using (render.BeginDocument(Path.GetFileNameWithoutExtension(caminhoPdf))) //Cria o pdf
+                    {
+                        Page pagina = tesseract.Process(image, Path.GetFileName(file));//Processa o arquivo podendo retirar as informacoes de OCR etc.
+                        render.AddPage(pagina); //Adiciona a pagina 
+                    }
+                }
+
+            MessageBox.Show("Pdf's gerados com sucesso!");
         }
 
         private void btnAbrirDirSaida_Click(object sender, EventArgs e)
